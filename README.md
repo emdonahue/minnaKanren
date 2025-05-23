@@ -1,4 +1,4 @@
-# aiKanren: miniKanren for AI
+# minnaKanren: miniKanren For All
 An optimized, extensible, and fully-featured first-order miniKanren implementation written in Chez Scheme. The goal of this repository is to serve as a platform for AI research combining symbolic and probabilistic methods.
 
 ## Installation & Use
