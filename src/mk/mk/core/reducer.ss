@@ -26,6 +26,15 @@
   
   
   ;; === REDUCEE ===
+  (define (reduce-constraint2 e r)
+    ;; Reduce existing constraint e (reduceE) using new constraint r (reduceR). If the reducer is fully entailed and the reducee is unmodified, we can discard the reducer and avoid modifying the store. Otherwise they will be conjoined and added to the store.
+    (cert (goal? e) (or (fail? e) (not (fail? r))) (or (goal? r) (mini-substitution? r))) ; -> simplified recheck
+       (if (succeed? r) e ; Handle case where reducer is succeed for all subcases.
+           (exclusive-cond
+            [(or (fail? e) (succeed? e)) e]
+            [(=/=? r) (=/=-reduce2 r e)]
+            [else (assertion-violation 'reduce-constraint "Unrecognized constraint type" (cons e r))])))
+  
   (define reduce-constraint
     ;; Reduce existing constraint g using new constraint c.
     ;; e-free => g is a e-free constraint (not in the store). for a e-free =/=, this means that =/= in the store won't simplify it away, so that we can turn around and use it to simplify the =/= already in the store, which may in turn simplify containing disj. e-free mode preserves some information. #f=store mode goes all out to simplify the store.
@@ -45,6 +54,19 @@
             [(proxy? e) (constraint-reduce e r #f r-disjunction #f r-normalized)] ; Proxies are never normalized bc they can't be stored. They can only be rechecked. They are also never free.
             [else (constraint-reduce e r e-free r-disjunction e-normalized r-normalized)]))]))
   
+  (org-define (=/=-reduce2 r e)
+              ;; =/=,=/= -> succeed | =/=,=/=
+              ;; =/=,==|... -> =/=,fail|...
+              ;; =/=,=/=|... -> =/=,fail|...
+              ;; what should we do where =/= & =/=|=/=... could extract the =/= from each branch of the | and simplify it, but it would mean overwriting things? probably we shouldnt try to check that something satisfies all branches and just nuke the branches one by one, which is also a cleaner final expression. 
+              ;; =/= can only simplify ==->fail and =/=->succeed
+              (exclusive-cond
+               [(==? e) ; -> fail?. Simple equality check ok because 1) we ignore list unifications for performance reasons, constants will already succeed or fail, and == orders vars by id
+                succeed
+                                        ;(vouch (if (equal? e (noto-goal r)) fail e) e-normalized r-normalized (noto-goal r))
+                ]
+               [else (assertion-violation '=/=-reduce "Unrecognized constraint type" e)]))
+
   (define (reduce-conj e r e-free r-disjunction e-normalized r-normalized)
     (cert (conj? e))
     (let-values ([(simplified-lhs recheck-lhs) (reduce-constraint (conj-lhs e) r e-free r-disjunction e-normalized r-normalized)])
@@ -102,9 +124,16 @@
   (org-define (==-reduce e s e-free r-disjunction e-normalized r-normalized)
     (cert (goal? e) (mini-substitution? s))
     (exclusive-cond
-     [(==? e) (let-values ([(lhs-normalized? lhs) (mini-walk-normalized s (==-lhs e))]
-                               [(rhs-normalized? rhs) (mini-walk-normalized s (==-rhs e))])
-                    (vouch (== lhs rhs) e-normalized (and r-normalized (var? lhs) lhs-normalized? rhs-normalized?) succeed))]
+     [(==? e) (let ([t (mini-unify s (==-lhs e) (==-rhs e))]) ; TODO does == x == ever come up in the reducer?
+                (cond
+                 [(failure? t) (values fail fail)]
+                 [(eq? s t) (values succeed e)] 
+                 [else (values succeed e)]))
+
+      #;
+      (let-values ([(lhs-normalized? lhs) (mini-walk-normalized s (==-lhs e))] ;
+      [(rhs-normalized? rhs) (mini-walk-normalized s (==-rhs e))]) ;
+      (vouch (== lhs rhs) e-normalized (and r-normalized (var? lhs) lhs-normalized? rhs-normalized?) succeed))]
      [(=/=? e) (let-values ([(e r-vouches) (mini-disunify/normalized s (=/=-lhs e) (=/=-rhs e))])
                  (vouch e e-normalized (and r-normalized r-vouches) succeed))]
      [(matcho? e) (let-values ([(expanded? e ==s) (matcho/expand e s)])

@@ -97,7 +97,7 @@
  (tassert "constraint fail|==" (run1 x1 (constraint (conde [(== x1 1) (== x1 2)] [(== x1 3)]))) 3)
  (tassert "constraint ==|== ==" (run1 x1 (constraint (conde [(== x1 1)] [(== x1 2)])) (constraint (== x1 1))) 1)
  (tassert "constraint =/= ==|==" (run1 x1 (constraint (=/= x1 1)) (constraint (conde [(== x1 1)] [(== x1 2)]))) 2)
- (tassert "constraint ==|== =/=" (org-trace (run1 x1 (constraint (conde [(== x1 1)] [(== x1 2)])) (constraint (=/= x1 1)))) 2)
+ (tassert "constraint ==|== =/=" (values (run1 x1 (constraint (conde [(== x1 1)] [(== x1 2)])) (constraint (=/= x1 1)))) 2)
  (tassert "constraint &" (run1 (x1 x2) (== x1 1) (=/= x2 2)) (list 1 (=/= x2 2)))
  (tassert "constraint |" (run1 x1 (constraint (conde ((== x1 1)) ((== x1 2))))) (disj* (== x1 1) (== x1 2)))
  (tassert "constraint == fail|==" (run1 (x1 x2) (constraint (== x1 1)) (constraint (conde ((== x1 2)) ((== x2 2))))) '(1 2))
