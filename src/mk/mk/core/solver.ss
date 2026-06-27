@@ -3,7 +3,7 @@
   (import (chezscheme) (mk core unifier) (mk core goals) (mk core streams) (mk core variables) (mk core utils) (mk core mini-substitution) (mk core reducer) (mk core matcho) (mk core walk))
 
   ;; TODO define a (goal) form, dual to (consraint) that pushes constraints back up into the search. especially good inside matcho. similar functionality to original delayed goals paper
-  
+
   (define (run-constraint g s)
     ;; Simplifies g as much as possible, and stores it in s. Primary interface for evaluating a constraint.
               (cert (goal? g) (maybe-state? s)) ; -> maybe-state?
@@ -101,31 +101,28 @@
                                         ;(cert (trivial? g/recheck)) ; TODO should disj get re-run?
         (if (eq? cg c) ; If the stored constraints c completely eliminate g,
             (solve-constraint c s ctn resolve delta) ; just keep solving with same state. g/recheck may be trivial or a disj with a failed lhs that may need to be re-disunified
-            (let*-values ([(c c/recheck) (reduce-constraint c g #f)]) ; Determine which stored constraints need to be rechecked. 
+            (let*-values ([(c c/recheck) (reduce-constraint c g #f)]) ; Determine which stored constraints need to be rechecked.
               (let ([attr-vars (attributed-vars g)]) ; Get the variables on which to store the new g.
                 (solve-constraint ; Run the constraints that need to be rerun,
                  c/recheck (extend ; and replace the store constraints in the store along with the new g.
                             (if (not (null? (cdr attr-vars)))
                                 (add-proxy s (cadr attr-vars) (car attr-vars)) s) ; Add a proxy to g's second var if needed.
                             (car attr-vars) (conj g c)) ctn resolve (conj delta g))))))))
-  
 
-  (define (solve-=/= g s ctn resolve delta) ; TODO simplify ctn ; ;
-    ;; Solves a =/= constraint lazily by finding the first unsatisfied unification and suspending the rest of the unifications as disjunction with a list =/=. ; ;
-    (cert (==? g)) ; -> delta state?      ; ;
-    (let-values ([(g c) (disunify s (==-lhs g) (==-rhs g))]) ; g is normalized x=/=y or disjunction of =/=, c is constraints on x&y that may need to be rechecked ; ;
+
+  (define (solve-=/= g s ctn resolve delta) ; TODO simplify ctn
+    (cert (==? g)) ; -> delta state?
+    (let-values ([(g c) (disunify s (==-lhs g) (==-rhs g))]) ; If non-trivial, g is normalized x=/=y or, in the case of list =/=, a disjunction headed by one normalized =/= and a number of lazy =/=. c is conjoined constraints on x&y that may need to be rechecked.
       (cert (or (trivial? g) (=/=? g) (and (disj? g) (=/=? (disj-car g)))))
-      (let*-values ([(g g/recheck) (reduce-constraint g c #t)]
-                    [(gg) (conj g g/recheck)]) ; Check if the new constraint is unsatisfiable or satisfied wrt the store. This is an asymmetric check, bc even if g is logically satisfied eg by a disjunction, it still may be able to simplify the store. ; ;
-        
-                                        ;(cert (trivial? g/recheck)) ; TODO should disj get re-run? ; ;
-        (if (trivial? gg) (solve-constraint gg s ctn resolve delta) ; If the new constraint is entailed, skip it and keep solving.
-            (let*-values ([(c c/recheck) (reduce-constraint c g #f)]) ; Determine which stored constraints need to be rechecked. ; ;
-              (let ([attr-vars (attributed-vars g)]) ; Get the variables on which to store the new g. ; ;
-                (solve-constraint ; Run the constraints that need to be rerun, ; ;
-                 c/recheck (extend ; and replace the store constraints in the store along with the new g. ; ;
-                            (if (not (null? (cdr attr-vars))) ; ;
-                                (add-proxy s (cadr attr-vars) (car attr-vars)) s) ; Add a proxy to g's second var if needed. ; ;
+      (let-values ([(g g/recheck) (reduce-constraint g c #t)])
+        (cert (trivial? g/recheck)) ; g will always be normalized because, if disj, to denormalize it we would need to simplify it with a c of ==, and no variable can have a pure top level conjoined == constraint, since it would just be the value at that point. So we never have to re-solve g.
+        (if (trivial? g) (solve-constraint g s ctn resolve delta) ; If g is entailed, skip it and keep solving. 
+            (let*-values ([(c c/recheck) (reduce-constraint c g #f)]) ; Determine which stored constraints need to be rechecked.
+              (let ([attr-vars (attributed-vars g)]) ; Get the variables on which to store the new g.
+                (solve-constraint ; Run the constraints that need to be rerun,
+                 c/recheck (extend ; and replace the store constraints in the store along with the new g.
+                            (if (not (null? (cdr attr-vars)))
+                                (add-proxy s (cadr attr-vars) (car attr-vars)) s) ; Add a proxy to g's second var if needed.
                             (car attr-vars) (conj g c)) ctn resolve (conj delta g))))))))
 
   (define solve-pconstraint
@@ -138,8 +135,8 @@
              (if (not var) (solve-constraint ctn (store-constraint s g) succeed resolve (conj delta g)) ; All vars walked. Store constraint.
                  (let-values ([(var^ val) (walk-var-val s var)])
                    #;
-                   (when (and (equal? var^ (make-var 17)) (equal? val 'list)) ; ;
-                     ;(pretty-print (walk-substitution s)) ; ;
+                   (when (and (equal? var^ (make-var 17)) (equal? val 'list))
+                     ;(pretty-print (walk-substitution s))
                    )
                    (let ([vs (cons var^ vs)])
                      (cond
