@@ -12,6 +12,9 @@
     (cert (=/=? g)) 
     (mini-unify '() (=/=-lhs g) (=/=-rhs g)))
 
+  (define (reduced-or-fail e r)
+    (if (or (fail? e) (fail? r)) (values fail fail) (values e r)))
+  
   (define (vouch e e-normalized r-normalized r)
     (if (fail? e) (values fail fail)
         (if (or e-normalized (and r-normalized (vouches? r e))) (values e succeed) (values succeed e))))
@@ -33,7 +36,7 @@
       [(e r e-free) (reduce-constraint e r e-free #f e-free (not e-free))]
       [(e r e-free r-disjunction e-normalized r-normalized)
        (cert (goal? e) (or (fail? e) (not (fail? r))) (or (goal? r) (mini-substitution? r))) ; -> simplified recheck
-       (if (succeed? r) (values e succeed) ; Succeed can only be a sole store constraint, so we know e is normalized
+       (if (or (succeed? r) (disj? r)) (values e succeed) ; Succeed can only be an empty store constraint, so we know e is normalized. We also skip disjunction reduction for efficiency (since disj x disj would be combinatorial and for dubious benefit).
            (exclusive-cond
             [(or (fail? e) (succeed? e)) (values e e)]
             [(conj? e) (reduce-conj e r e-free r-disjunction e-normalized r-normalized)]
@@ -70,7 +73,10 @@
     (let-values ([(simplified-lhs recheck-lhs) (reduce-constraint (disj-lhs e) r e-free r-disjunction e-normalized r-normalized)])
       (exclusive-cond
        [(and (succeed? simplified-lhs) (succeed? recheck-lhs)) (values succeed succeed)]
-       [(fail? simplified-lhs) (reduce-constraint (disj-rhs e) r e-free r-disjunction #f r-normalized)]
+       [(fail? simplified-lhs)
+        (let-values ([(simplified-rhs recheck-rhs)
+                       (reduce-constraint (disj-rhs e) r e-free r-disjunction #f r-normalized)])
+          (reduced-or-fail succeed (conj simplified-rhs recheck-rhs)))]
        [else
         (let-values ([(simplified-rhs recheck-rhs) (reduce-constraint (disj-rhs e) r e-free r-disjunction #f r-normalized)])
           (vouch (disj (conj simplified-lhs recheck-lhs) (conj simplified-rhs recheck-rhs))
@@ -88,7 +94,7 @@
      [(=/=? r) (=/=-reduce e r e-free r-disjunction e-normalized r-normalized)]
      [(pconstraint? r) (pconstraint-reduce e r e-free r-disjunction e-normalized r-normalized)]
      [(conj? r) (conj-reduce e r e-free r-disjunction e-normalized r-normalized)]
-     [(disj? r) (disj-reduce e r e-free e-normalized r-normalized)]
+     ;[(disj? r) (disj-reduce e r e-free e-normalized r-normalized)] ; TODO remove disj reducer
      [(noto? r) (noto-reduce e (noto-goal r) e-free r-disjunction e-normalized r-normalized)]
      [(matcho? r) (matcho-reduce e r e-free r-disjunction e-normalized r-normalized)]
      [(proxy? r) (vouch e e-normalized #f succeed)] ; Proxies are never normalized and so can vouch for nothing
