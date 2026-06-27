@@ -28,7 +28,7 @@
   ;; === REDUCEE ===
   (define reduce-constraint
     ;; Reduce existing constraint g using new constraint c.
-    ;; e-free => g is a e-free constraint (not in the store). for a e-free =/=, this means that =/= in the store won't simplify it away, so that we can turn around and use it to simplify the =/= already in the story, which may in turn simplify containing disj. e-free mode preserves some information. #f=store mode goes all out to simplify the store.
+    ;; e-free => g is a e-free constraint (not in the store). for a e-free =/=, this means that =/= in the store won't simplify it away, so that we can turn around and use it to simplify the =/= already in the store, which may in turn simplify containing disj. e-free mode preserves some information. #f=store mode goes all out to simplify the store.
     (case-lambda
       [(e r e-free) (reduce-constraint e r e-free #f e-free (not e-free))]
       [(e r e-free r-disjunction e-normalized r-normalized)
