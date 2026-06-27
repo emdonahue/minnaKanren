@@ -116,12 +116,12 @@
       (cert (or (trivial? g) (=/=? g) (and (disj? g) (=/=? (disj-car g)))))
       (let-values ([(g g/recheck) (reduce-constraint g c #t)])
         (cert (trivial? g/recheck)) ; g will always be normalized because, if disj, to denormalize it we would need to simplify it with a c of ==, and no variable can have a pure top level conjoined == constraint, since it would just be the value at that point. So we never have to re-solve g.
-        (if (trivial? g) (solve-constraint g s ctn resolve delta) ; If g is entailed, skip it and keep solving. 
-            (let*-values ([(c c/recheck) (reduce-constraint c g #f)]) ; Determine which stored constraints need to be rechecked.
+        (if (trivial? g) (solve-constraint g s ctn resolve delta) ; If g is entailed, skip it and keep solving.
+            (let-values ([(c c/recheck) (reduce-constraint c g #f)]) ; Determine which stored constraints need to be rechecked. c returned from disunifier only contains constraints on x (those on y that would be relevant to x=/y are already proxied to x), so we don't need to touch y's constraints.
               (let ([attr-vars (attributed-vars g)]) ; Get the variables on which to store the new g.
                 (solve-constraint ; Run the constraints that need to be rerun,
                  c/recheck (extend ; and replace the store constraints in the store along with the new g.
-                            (if (not (null? (cdr attr-vars)))
+                            (if (not (null? (cdr attr-vars))) ; TODO can we check if c already has attr vars to y, and so already should have proxy?
                                 (add-proxy s (cadr attr-vars) (car attr-vars)) s) ; Add a proxy to g's second var if needed.
                             (car attr-vars) (conj g c)) ctn resolve (conj delta g))))))))
 

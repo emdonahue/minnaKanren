@@ -26,17 +26,8 @@
   
   
   ;; === REDUCEE ===
-  (define (reduce-constraint2 e r)
-    ;; Reduce existing constraint e (reduceE) using new constraint r (reduceR). If the reducer is fully entailed and the reducee is unmodified, we can discard the reducer and avoid modifying the store. Otherwise they will be conjoined and added to the store.
-    (cert (goal? e) (or (fail? e) (not (fail? r))) (or (goal? r) (mini-substitution? r))) ; -> simplified recheck
-       (if (succeed? r) e ; Handle case where reducer is succeed for all subcases.
-           (exclusive-cond
-            [(or (fail? e) (succeed? e)) e]
-            [(=/=? r) (=/=-reduce2 r e)]
-            [else (assertion-violation 'reduce-constraint "Unrecognized constraint type" (cons e r))])))
-  
   (define reduce-constraint
-    ;; Reduce existing constraint g using new constraint c.
+    ;; Reduce constraint e (reduceE) using the information contained in constraint r (reduceR).
     ;; e-free => g is a e-free constraint (not in the store). for a e-free =/=, this means that =/= in the store won't simplify it away, so that we can turn around and use it to simplify the =/= already in the store, which may in turn simplify containing disj. e-free mode preserves some information. #f=store mode goes all out to simplify the store.
     (case-lambda
       [(e r e-free) (reduce-constraint e r e-free #f e-free (not e-free))]

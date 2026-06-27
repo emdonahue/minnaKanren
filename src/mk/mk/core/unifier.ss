@@ -97,7 +97,7 @@
   ;; === DISUNIFICATION ===
   
   (define (disunify s x y)
-    ;; Specialized unification for =/= constraints. Only solves enough to confirm non failure and simplifies using special routines for =/=.
+    ;; Specialized unification for =/= constraints. Only solves enough to confirm non failure and simplifies using special routines for =/=. Returns disunification along with constraints on the vars that may need to be rechecked.
     (cert (state? s)) ; -> substitution? goal?
     (let-values ([(x-var x) (walk-var-val s x)]
                  [(y-var y) (walk-var-val s y)]) ;TODO how does disunify play with constraints in substitution?
@@ -106,8 +106,9 @@
               (disunify-binding s y-var y x-var x)
               (disunify-binding s x-var x y-var y)))))
 
-  (define (disunify-binding s x-var x y-var y) ; if x-var and y-var are both vars, x-var has a lower index
-              (cert (state? s)) ; -> goal?(disequality) goal?(constraint)
+  (define (disunify-binding s x-var x y-var y) 
+    (cert (state? s) ; -> goal?(disequality) goal?(constraint)
+          (or (not (var? x-var)) (not (var? y-var)) (fx< (var-id x-var) (var-id y-var)))) ; if x-var and y-var are both vars, x-var has a lower index
     (cond
      [(goal? x) (extend/disunify s x-var (if (goal? y) y-var y) fail x)] ; Return the constraint on x to recheck for possible == to commit.
      [(goal? y) (if (var? x)
@@ -139,7 +140,7 @@
       (cert (goal? stored-constraint))
       (fold-left (lambda (s v) (add-proxy s v (car vs))) (extend s (car vs) (conj stored-constraint c)) (cdr vs))))
 
-  (define (add-proxy s v c)
+  (define (add-proxy s v c) ; TODO add-proxy should only add at most one proxy per variable
     (cert (state? s) (var? v) (var? c))
     (let ([stored-constraint (substitution-ref (state-substitution s) v)])
       (cert (goal? stored-constraint))
