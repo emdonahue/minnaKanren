@@ -9,10 +9,10 @@
  reducer
 
  ;; === EQUALITY ===
- (let* ([x1=1 (list (cons x1 1))]
-        [x1=23 (list (cons x1 (cons 2 3)))]
-        [x1=x2 (list (cons x1 x2))]
-        [x1=x2x3 (list (cons x1 (cons x2 x3)))])
+ (let* ([x1=1 (== x1 1)]
+        [x1=23 (== x1 (cons 2 3))]
+        [x1=x2 (== x1 x2)]
+        [x1=x2x3 (== x1 (cons x2 x3))])
    ;; nothing=ground succeed, !=ground conflict, ?=free var, ^=bound var
    (tassert "reduce == & ==" (reduce-constraint (== x1 1) x1=1 #f) (list succeed succeed))
    (tassert "reduce == & ==!" (reduce-constraint (== x1 2) x1=1 #f) (list fail fail))

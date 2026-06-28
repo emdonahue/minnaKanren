@@ -92,8 +92,8 @@
   ;; === REDUCER ===
   (define (constraint-reduce e r e-free r-disjunction e-normalized r-normalized)
     (exclusive-cond
-     [(list? r) (==-reduce e r e-free r-disjunction e-normalized r-normalized)]
-     [(==? r) (==-reduce e (==->substitution r) e-free r-disjunction e-normalized r-normalized)]
+     [(list? r) (==-reducer e r e-free r-disjunction e-normalized r-normalized)]
+     [(==? r) (==-reducer e (==->substitution r) e-free r-disjunction e-normalized r-normalized)]
      [(=/=? r) (=/=-reduce e r e-free r-disjunction e-normalized r-normalized)]
      [(pconstraint? r) (pconstraint-reduce e r e-free r-disjunction e-normalized r-normalized)]
      [(conj? r) (conj-reduce e r e-free r-disjunction e-normalized r-normalized)]
@@ -132,13 +132,13 @@
        [(and (trivial? recheck-lhs) (trivial? recheck-rhs)) (values e succeed)]
        [else (values succeed e)])))
 
-  (org-define (==-reduce e s e-free r-disjunction e-normalized r-normalized)
-              (cert (goal? e) (mini-substitution? s))
+  (org-define (==-reducer e s e-free r-disjunction e-normalized r-normalized)
+              (cert (goal? e) (mini-substitution? s)) ;TODO just be polymorphic with == and dont keep converting to minisub
               (exclusive-cond
                [(==? e) (let ([t (mini-unify s (==-lhs e) (==-rhs e))]) ; TODO does == x == ever come up in the reducer?
                           (cond
                            [(failure? t) (values fail fail)]
-                           [(eq? s t) (values succeed e)] 
+                           [(eq? s t) (values succeed succeed)] 
                            [else (values succeed e)]))
 
                 #;
@@ -156,7 +156,7 @@
                [(pconstraint? e) (==/pconstraint-reduce e s e-free r-disjunction e-normalized r-normalized)]
                [(proxy? e) ; If we can vouch that they have already been walked, discard. Otherwise we have to walk them (cant be stored). 
                 (if (and r-normalized (mini-normalized? s (proxy-var e))) (values succeed succeed) (values succeed e))] 
-               [else (assertion-violation '==-reduce "Unrecognized constraint type" e)]))
+               [else (assertion-violation '==-reducer "Unrecognized constraint type" e)]))
 
   (org-define (=/=-reduce e r e-free r-disjunction e-normalized r-normalized)
               ;; =/= can only simplify ==->fail and =/=->succeed
