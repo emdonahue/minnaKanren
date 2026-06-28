@@ -92,31 +92,15 @@
       (if (fail? bindings) (values fail failure)
           (solve-constraint ctn (store-constraint s simplified) succeed (conj pending (conj resolve committed)) delta))))
 
-  #;
+  
   (define (solve-=/= g s ctn resolve delta) ; TODO simplify ctn
-    ;; Solves a =/= constraint lazily by finding the first unsatisfied unification and suspending the rest of the unifications as disjunction with a list =/=.
-    (cert (==? g))                      ; -> delta state?
-    (let-values ([(g c) (disunify s (==-lhs g) (==-rhs g))]) ; g is normalized x=/=y or disjunction of =/=, c is constraints on x&y that may need to be rechecked
-      (let-values ([(cg) (reduce-constraint2 c g)]) ; Check if the new constraint is unsatisfiable or satisfied wrt the store. This is an asymmetric check, bc even if g is logically satisfied eg by a disjunction, it still may be able to simplify the store.
-                                        ;(cert (trivial? g/recheck)) ; TODO should disj get re-run?
-        (if (eq? cg c) ; If the stored constraints c completely eliminate g,
-            (solve-constraint c s ctn resolve delta) ; just keep solving with same state. g/recheck may be trivial or a disj with a failed lhs that may need to be re-disunified
-            (let*-values ([(c c/recheck) (reduce-constraint c g #f)]) ; Determine which stored constraints need to be rechecked.
-              (let ([attr-vars (attributed-vars g)]) ; Get the variables on which to store the new g.
-                (solve-constraint ; Run the constraints that need to be rerun,
-                 c/recheck (extend ; and replace the store constraints in the store along with the new g.
-                            (if (not (null? (cdr attr-vars)))
-                                (add-proxy s (cadr attr-vars) (car attr-vars)) s) ; Add a proxy to g's second var if needed.
-                            (car attr-vars) (conj g c)) ctn resolve (conj delta g))))))))
-
-
-  (define (solve-=/= g s ctn resolve delta) ; TODO simplify ctn
-    (cert (==? g)) ; -> delta state?
+    (cert (==? g))                          ; -> delta state?
     (let-values ([(g c) (disunify s (==-lhs g) (==-rhs g))]) ; If non-trivial, g is normalized x=/=y or, in the case of list =/=, a disjunction headed by one normalized =/= and a number of lazy =/=. c is conjoined constraints on x&y that may need to be rechecked.
       (cert (or (trivial? g) (=/=? g) (and (disj? g) (=/=? (disj-car g)))))
       (let-values ([(g g/recheck) (reduce-constraint g c #t)])
         (if (trivial? g) (solve-constraint g/recheck s ctn resolve delta) ; If g is entailed, skip it and keep solving. We may have g/recheck when c is a disjunction where all disjuncts need to recheck part of g. If g is fail, so is g/recheck.
             (let-values ([(c c/recheck) (reduce-constraint c g #t)]) ; Determine which stored constraints need to be rechecked. c returned from disunifier only contains constraints on x (those on y that would be relevant to x=/y are already proxied to x), so we don't need to touch y's constraints.
+              (cert (not (conj-memp c ==?)))
               (let ([attr-vars (attributed-vars g)]) ; Get the variables on which to store the new g.
                 (solve-constraint ; Run the constraints that need to be rerun,
                  c/recheck (extend ; and replace the store constraints in the store along with the new g.

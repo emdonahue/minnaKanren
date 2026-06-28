@@ -99,12 +99,12 @@
                 (booleano z)) (void))
 
 
- (tassert "all different-booleans fail"
-          (run1 (x y z)
-                (booleano x)
-                (booleano y)
-                (booleano z)
-                (all-different (list x y z))) (void))
+ (org-trace (tassert "all different-booleans fail"
+           (run1 (x y z)
+                 (booleano x)
+                 (booleano y)
+                 (booleano z)
+                 (all-different (list x y z))) (void)))
  
  ;; === IMPLIES ===
  (tassert "implies consequent true" (run1 (x1 x2) (==> (== x1 1) (== x2 2)) (== x2 2)) (list (disj (=/= x1 1) (== x2 2)) 2))
