@@ -127,8 +127,7 @@
                  [(simplified-rhs recheck-rhs) (reduce-constraint e (disj-rhs r) #f)])
       (org-cond
        [(and (fail? simplified-lhs) (fail? simplified-rhs)) (values fail fail)]
-       [(and (succeed? simplified-lhs) (succeed? recheck-lhs) (succeed? simplified-rhs) (succeed? recheck-rhs))
-        (values succeed succeed)]
+       [(and (equal? simplified-lhs simplified-rhs) (equal? recheck-lhs recheck-rhs)) (values simplified-lhs recheck-lhs)] ; Handles case where all disjuncts succeed (returning succeed) and where all disjuncts reduce to the same simplified value.
        [(and (trivial? recheck-lhs) (trivial? recheck-rhs)) (values e succeed)]
        [else (values succeed e)])))
 
