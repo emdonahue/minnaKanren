@@ -297,7 +297,7 @@
 
   ;; === NEGATION ===
   (define-structure (noto goal)) ; Negated goal
-  (define (=/= lhs rhs) (noto (== lhs rhs)))
+  (define (=/= lhs rhs) (noto (== lhs rhs))) ; Defining =/= as a function of == lets us reuse =='s variable ordering machinery.
   (define (=/=-lhs g) (==-lhs (noto-goal g)))
   (define (=/=-rhs g) (==-rhs (noto-goal g)))
   (define (=/=? g) (and (noto? g) (==? (noto-goal g))))

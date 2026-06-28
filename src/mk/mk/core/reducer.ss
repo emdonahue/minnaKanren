@@ -123,8 +123,8 @@
 
   (org-define (disj-reducer r e)
               (cert (disj? r))
-    (let-values ([(simplified-lhs recheck-lhs) (reduce-constraint e (disj-lhs r) #f)]
-                 [(simplified-rhs recheck-rhs) (reduce-constraint e (disj-rhs r) #f)])
+    (let-values ([(simplified-lhs recheck-lhs) (reduce-constraint e (disj-lhs r) #t)]
+                 [(simplified-rhs recheck-rhs) (reduce-constraint e (disj-rhs r) #t)])
       (if (and (equal? simplified-lhs simplified-rhs) (equal? recheck-lhs recheck-rhs)) (values simplified-lhs recheck-lhs) ; Handles cases where all disjuncts fail (returning fail), succeed (returning succeed), or reduce to the same simplified value.
        (values e succeed))))
 
