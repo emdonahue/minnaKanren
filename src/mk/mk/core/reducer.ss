@@ -125,11 +125,8 @@
               (cert (disj? r))
     (let-values ([(simplified-lhs recheck-lhs) (reduce-constraint e (disj-lhs r) #f)]
                  [(simplified-rhs recheck-rhs) (reduce-constraint e (disj-rhs r) #f)])
-      (org-cond
-       [(and (fail? simplified-lhs) (fail? simplified-rhs)) (values fail fail)]
-       [(and (equal? simplified-lhs simplified-rhs) (equal? recheck-lhs recheck-rhs)) (values simplified-lhs recheck-lhs)] ; Handles case where all disjuncts succeed (returning succeed) and where all disjuncts reduce to the same simplified value.
-       [(and (trivial? recheck-lhs) (trivial? recheck-rhs)) (values e succeed)]
-       [else (values succeed e)])))
+      (if (and (equal? simplified-lhs simplified-rhs) (equal? recheck-lhs recheck-rhs)) (values simplified-lhs recheck-lhs) ; Handles cases where all disjuncts fail (returning fail), succeed (returning succeed), or reduce to the same simplified value.
+       (values e succeed))))
 
   (org-define (==-reducer e s e-free r-disjunction e-normalized r-normalized)
               (cert (goal? e) (mini-substitution? s)) ;TODO just be polymorphic with == and dont keep converting to minisub
