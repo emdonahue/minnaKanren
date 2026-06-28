@@ -139,7 +139,7 @@
                           (cond
                            [(failure? t) (values fail fail)]
                            [(eq? s t) (values succeed succeed)] 
-                           [else (values succeed e)]))
+                           [else (values e succeed)]))
 
                 #;
                 (let-values ([(lhs-normalized? lhs) (mini-walk-normalized s (==-lhs e))] ; ; ;
@@ -164,11 +164,15 @@
     (exclusive-cond
      [(==? e) ; -> fail?. Simple equality check ok because 1) we ignore list unifications for performance reasons, constants will already succeed or fail, and == orders vars by id
       (vouch (if (equal? e (noto-goal r)) fail e) e-normalized r-normalized (noto-goal r))]
-     [(=/=? e) ; -> succeed, =/=
-      (cert (not (pair? (=/=-lhs e))))
-      (if (and (not (and e-free r-disjunction)) (equal? e r)) ; If reducee is free and reducer is in a disjunction, we must negate our usual symmetric equality check and preserve the reducee so it can later simplify the reducer.
-          (values succeed succeed) ; Identical =/= can cancel
-          (vouch e e-normalized (and r-normalized (not (and e-free r-disjunction))) (noto-goal r)))]
+     [(=/=? e)                          ; -> succeed, =/=
+      (if (equal? e r) (values succeed succeed)      ; Identical =/= can cancel
+          (values e succeed))]
+     #;
+     [(=/=? e)                          ; -> succeed, =/= ; ;
+     (cert (not (pair? (=/=-lhs e))))  ; ; ;
+     (if (and (not (and e-free r-disjunction)) (equal? e r)) ; If reducee is free and reducer is in a disjunction, we must negate our usual symmetric equality check and preserve the reducee so it can later simplify the reducer. ; ;
+     (values succeed succeed)      ; Identical =/= can cancel ; ;
+     (vouch e e-normalized (and r-normalized (not (and e-free r-disjunction))) (noto-goal r)))]
      [(matcho? e) (vouch e e-normalized r-normalized r)]
      [(pconstraint? e) (vouch e e-normalized r-normalized r)]
      [(proxy? e) (if (vouches? r e) (values succeed succeed) (values succeed e))]
