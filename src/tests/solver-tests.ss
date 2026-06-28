@@ -7,9 +7,9 @@
 
 (test-suite
  solver
-
- ;; === CON/DISJUNCTION ===
- (tassert "conj fail first" (conj fail succeed) fail)
+ 
+;; === CON/DISJUNCTION ===
+(tassert "conj fail first" (conj fail succeed) fail)
  (tassert "conj fail rest" (conj succeed fail) fail)
  (tassert "conj compress succeed" (conj succeed succeed) succeed)
  (tassert "conj single goals" (conj* (== 1 1)) (== 1 1))
@@ -191,7 +191,7 @@
  (tassert "disunify simplify drops when =/= in a conj" (run1 x1 (disj (conj (=/= x1 1) (conj (numbero x1) (=/= x1 1))) (=/= x1 2))) (disj (conj (=/= x1 1) (numbero x1)) (=/= x1 2)))
  (tassert "disunify occurs check" (run1 x1 (=/= x1 (list x1))) x1)
  (tassert "=/= quiescent even with unnormalized vars" (run1 (x1 x2 x3) (=/= x1 x2) (=/= x1 x3)) (list (conj (=/= x1 x3) (=/= x1 x2)) (proxy x1) (proxy x1)))
- (tassert "=/= stored constraints recheck disj =/=" (run1 (x1 x2) (disj (== x1 1) (== x1 1)) (disj (=/= x1 1) (=/= x2 2))) (list (disj (== x1 1) (== x1 1)) (=/= x2 2)))
+(tassert "=/= stored constraints recheck disj =/=" (run1 (x1 x2) (disj (== x1 1) (== x1 1)) (disj (=/= x1 1) (=/= x2 2))) (list (disj (== x1 1) (== x1 1)) (=/= x2 2)))
  ;(tassert "disunify disjunctions from lists simplify" (run1 (x1 x2) (=/= (list x1 x1) '(1 1)) (=/= (list x1 x2) '(1 2))) (list (disj (=/= x1 1) (=/= (list x1) '(1))) x2))
  (tassert "=/= stored constraints simplify disj =/=" (run1 (x1 x2) (disj (== x1 1) (== x1 1)) (=/= (list x1 x2) '(1 2))) (list (disj (== x1 1) (== x1 1)) (=/= x2 2)))
 

@@ -36,17 +36,20 @@
       [(e r e-free) (reduce-constraint e r e-free #f e-free (not e-free))]
       [(e r e-free r-disjunction e-normalized r-normalized)
        (cert (goal? e) (or (fail? e) (not (fail? r))) (or (goal? r) (mini-substitution? r))) ; -> simplified recheck
-       (if (or (succeed? r) (disj? r)) (values e succeed) ; Succeed can only be an empty store constraint, so we know e is normalized. We also skip disjunction reduction for efficiency (since disj x disj would be combinatorial and for dubious benefit).
-           (exclusive-cond
-            [(or (fail? e) (succeed? e)) (values e e)]
-            [(conj? e) (reduce-conj e r e-free r-disjunction e-normalized r-normalized)]
-            [(disj? e) (reduce-disj e r e-free r-disjunction e-normalized r-normalized)]
-            [(and (noto? e) (not (=/=? e))) (reduce-noto e r e-free r-disjunction e-normalized r-normalized)]
-            [(constraint? e) (reduce-constraint (constraint-goal e) r e-free r-disjunction e-normalized r-normalized)]
-            [(and (=/=? e) (pair? (=/=-lhs e)))
-             (reduce-constraint (mini-disunify '() (=/=-lhs e) (=/=-rhs e)) r e-free r-disjunction e-normalized r-normalized)]
-            [(proxy? e) (constraint-reduce e r #f r-disjunction #f r-normalized)] ; Proxies are never normalized bc they can't be stored. They can only be rechecked. They are also never free.
-            [else (constraint-reduce e r e-free r-disjunction e-normalized r-normalized)]))]))
+       (exclusive-cond
+        [(succeed? r) (values e succeed)] ; Succeed can only be an empty store constraint, so we know e is normalized. We also skip disjunction reduction for efficiency (since disj x disj would be combinatorial and for dubious benefit).
+        [(disj? r) (disj-reducer r e)]
+        [else
+         (exclusive-cond
+          [(or (fail? e) (succeed? e)) (values e e)]
+          [(conj? e) (reduce-conj e r e-free r-disjunction e-normalized r-normalized)]
+          [(disj? e) (reduce-disj e r e-free r-disjunction e-normalized r-normalized)]
+          [(and (noto? e) (not (=/=? e))) (reduce-noto e r e-free r-disjunction e-normalized r-normalized)]
+          [(constraint? e) (reduce-constraint (constraint-goal e) r e-free r-disjunction e-normalized r-normalized)]
+          [(and (=/=? e) (pair? (=/=-lhs e)))
+           (reduce-constraint (mini-disunify '() (=/=-lhs e) (=/=-rhs e)) r e-free r-disjunction e-normalized r-normalized)]
+          [(proxy? e) (constraint-reduce e r #f r-disjunction #f r-normalized)] ; Proxies are never normalized bc they can't be stored. They can only be rechecked. They are also never free.
+          [else (constraint-reduce e r e-free r-disjunction e-normalized r-normalized)])])]))
   
   (org-define (=/=-reduce2 r e)
               ;; =/=,=/= -> succeed | =/=,=/=
@@ -94,7 +97,7 @@
      [(=/=? r) (=/=-reduce e r e-free r-disjunction e-normalized r-normalized)]
      [(pconstraint? r) (pconstraint-reduce e r e-free r-disjunction e-normalized r-normalized)]
      [(conj? r) (conj-reduce e r e-free r-disjunction e-normalized r-normalized)]
-     ;[(disj? r) (disj-reduce e r e-free e-normalized r-normalized)] ; TODO remove disj reducer
+     [(disj? r) (disj-reduce e r e-free e-normalized r-normalized)]
      [(noto? r) (noto-reduce e (noto-goal r) e-free r-disjunction e-normalized r-normalized)]
      [(matcho? r) (matcho-reduce e r e-free r-disjunction e-normalized r-normalized)]
      [(proxy? r) (vouch e e-normalized #f succeed)] ; Proxies are never normalized and so can vouch for nothing
@@ -118,31 +121,42 @@
        [else (vouch e e-normalized (and r-normalized (or (and (succeed? recheck-lhs) (not (succeed? simplified-lhs)))
                                                            (and (succeed? recheck-rhs) (not (succeed? simplified-rhs))))) succeed)])))
 
-  (org-define (==-reduce e s e-free r-disjunction e-normalized r-normalized)
-    (cert (goal? e) (mini-substitution? s))
-    (exclusive-cond
-     [(==? e) (let ([t (mini-unify s (==-lhs e) (==-rhs e))]) ; TODO does == x == ever come up in the reducer?
-                (cond
-                 [(failure? t) (values fail fail)]
-                 [(eq? s t) (values succeed e)] 
-                 [else (values succeed e)]))
+  (org-define (disj-reducer r e)
+              (cert (disj? r))
+    (let-values ([(simplified-lhs recheck-lhs) (reduce-constraint e (disj-lhs r) #f)]
+                 [(simplified-rhs recheck-rhs) (reduce-constraint e (disj-rhs r) #f)])
+      (org-cond
+       [(and (fail? simplified-lhs) (fail? simplified-rhs)) (values fail fail)]
+       [(and (succeed? simplified-lhs) (succeed? recheck-lhs) (succeed? simplified-rhs) (succeed? recheck-rhs))
+        (values succeed succeed)]
+       [(and (trivial? recheck-lhs) (trivial? recheck-rhs)) (values e succeed)]
+       [else (values succeed e)])))
 
-      #;
-      (let-values ([(lhs-normalized? lhs) (mini-walk-normalized s (==-lhs e))] ;
-      [(rhs-normalized? rhs) (mini-walk-normalized s (==-rhs e))]) ;
-      (vouch (== lhs rhs) e-normalized (and r-normalized (var? lhs) lhs-normalized? rhs-normalized?) succeed))]
-     [(=/=? e) (let-values ([(e r-vouches) (mini-disunify/normalized s (=/=-lhs e) (=/=-rhs e))])
-                 (vouch e e-normalized (and r-normalized r-vouches) succeed))]
-     [(matcho? e) (let-values ([(expanded? e ==s) (matcho/expand e s)])
-                    (if expanded?
-                        (reduce-constraint (conj ==s e) s e-free r-disjunction #f r-normalized)
-                        (let-values ([(==s ==s/recheck) (reduce-constraint ==s s e-free r-disjunction #f r-normalized)]
-                                     [(e e/recheck) (vouch e e-normalized r-normalized s)])
-                          (values (conj ==s e) (conj ==s/recheck e/recheck)))))]
-     [(pconstraint? e) (==/pconstraint-reduce e s e-free r-disjunction e-normalized r-normalized)]
-     [(proxy? e) ; If we can vouch that they have already been walked, discard. Otherwise we have to walk them (cant be stored). 
-      (if (and r-normalized (mini-normalized? s (proxy-var e))) (values succeed succeed) (values succeed e))] 
-     [else (assertion-violation '==-reduce "Unrecognized constraint type" e)]))
+  (org-define (==-reduce e s e-free r-disjunction e-normalized r-normalized)
+              (cert (goal? e) (mini-substitution? s))
+              (exclusive-cond
+               [(==? e) (let ([t (mini-unify s (==-lhs e) (==-rhs e))]) ; TODO does == x == ever come up in the reducer?
+                          (cond
+                           [(failure? t) (values fail fail)]
+                           [(eq? s t) (values succeed e)] 
+                           [else (values succeed e)]))
+
+                #;
+                (let-values ([(lhs-normalized? lhs) (mini-walk-normalized s (==-lhs e))] ; ; ;
+                [(rhs-normalized? rhs) (mini-walk-normalized s (==-rhs e))]) ; ; ;
+                (vouch (== lhs rhs) e-normalized (and r-normalized (var? lhs) lhs-normalized? rhs-normalized?) succeed))]
+               [(=/=? e) (let-values ([(e r-vouches) (mini-disunify/normalized s (=/=-lhs e) (=/=-rhs e))])
+                           (vouch e e-normalized (and r-normalized r-vouches) succeed))]
+               [(matcho? e) (let-values ([(expanded? e ==s) (matcho/expand e s)])
+                              (if expanded?
+                                  (reduce-constraint (conj ==s e) s e-free r-disjunction #f r-normalized)
+                                  (let-values ([(==s ==s/recheck) (reduce-constraint ==s s e-free r-disjunction #f r-normalized)]
+                                               [(e e/recheck) (vouch e e-normalized r-normalized s)])
+                                    (values (conj ==s e) (conj ==s/recheck e/recheck)))))]
+               [(pconstraint? e) (==/pconstraint-reduce e s e-free r-disjunction e-normalized r-normalized)]
+               [(proxy? e) ; If we can vouch that they have already been walked, discard. Otherwise we have to walk them (cant be stored). 
+                (if (and r-normalized (mini-normalized? s (proxy-var e))) (values succeed succeed) (values succeed e))] 
+               [else (assertion-violation '==-reduce "Unrecognized constraint type" e)]))
 
   (org-define (=/=-reduce e r e-free r-disjunction e-normalized r-normalized)
               ;; =/= can only simplify ==->fail and =/=->succeed
