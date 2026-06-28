@@ -12,7 +12,7 @@
     (cert (=/=? g)) 
     (mini-unify '() (=/=-lhs g) (=/=-rhs g)))
 
-  (define (reduced-or-fail e r)
+  (define (maybe-reduced e r)
     (if (or (fail? e) (fail? r)) (values fail fail) (values e r)))
   
   (define (vouch e e-normalized r-normalized r)
@@ -79,9 +79,13 @@
        [(fail? simplified-lhs)
         (let-values ([(simplified-rhs recheck-rhs)
                        (reduce-constraint (disj-rhs e) r e-free r-disjunction #f r-normalized)])
-          (reduced-or-fail succeed (conj simplified-rhs recheck-rhs)))]
+          (maybe-reduced succeed (conj simplified-rhs recheck-rhs)))]
        [else
         (let-values ([(simplified-rhs recheck-rhs) (reduce-constraint (disj-rhs e) r e-free r-disjunction #f r-normalized)])
+          (if (trivial? recheck-lhs)
+              (maybe-reduced (disj (conj simplified-lhs recheck-lhs) (conj simplified-rhs recheck-rhs)) succeed)
+              (maybe-reduced succeed (disj (conj simplified-lhs recheck-lhs) (conj simplified-rhs recheck-rhs))))
+          #;
           (vouch (disj (conj simplified-lhs recheck-lhs) (conj simplified-rhs recheck-rhs))
                  e-normalized (and r-normalized (succeed? recheck-lhs)) succeed))])))
   
@@ -141,8 +145,11 @@
                 (let-values ([(lhs-normalized? lhs) (mini-walk-normalized s (==-lhs e))] ; ; ;
                 [(rhs-normalized? rhs) (mini-walk-normalized s (==-rhs e))]) ; ; ;
                 (vouch (== lhs rhs) e-normalized (and r-normalized (var? lhs) lhs-normalized? rhs-normalized?) succeed))]
-               [(=/=? e) (let-values ([(e r-vouches) (mini-disunify/normalized s (=/=-lhs e) (=/=-rhs e))])
-                           (vouch e e-normalized (and r-normalized r-vouches) succeed))]
+               [(=/=? e) (maybe-reduced (mini-disunify s (=/=-lhs e) (=/=-rhs e)) succeed)
+
+                #;
+                (let-values ([(e r-vouches) (mini-disunify/normalized s (=/=-lhs e) (=/=-rhs e))])
+                  (vouch e e-normalized (and r-normalized r-vouches) succeed))]
                [(matcho? e) (let-values ([(expanded? e ==s) (matcho/expand e s)])
                               (if expanded?
                                   (reduce-constraint (conj ==s e) s e-free r-disjunction #f r-normalized)

@@ -78,7 +78,7 @@
    (tassert "reduce == & ==!|==?" (reduce-constraint (disj (== x1 2) (== x2 3)) x1=1 #f) (list succeed (== x2 3)))
    (tassert "reduce == & ==?|==?" (reduce-constraint (disj (== x2 2) (== x2 3)) x1=1 #f) (list (disj (== x2 2) (== x2 3)) succeed))   
    (tassert "reduce == & match|unsatisfiable" (reduce-constraint (disj (matcho ([(a . d) x1]) (== a 1) (== d 2)) (=/= x1 (cons x2 x3))) x1=x2x3 #f) (list (conj (== x2 1) (== x3 2)) succeed))
-   (tassert "reduce == & =/=|unsatisfiable|undecidable" (reduce-constraint (disj (disj (=/= x2 2) (=/= x1 1)) (== x2 2)) x1=1 #f) (list succeed (disj (=/= x2 2) (== x2 2))))
+(org-trace   (tassert "reduce == & =/=|unsatisfiable|undecidable" (reduce-constraint (disj (disj (=/= x2 2) (=/= x1 1)) (== x2 2)) x1=1 #f) (list (disj (=/= x2 2) (== x2 2)) succeed)))
 
    (tassert "reduce == & proxy succeed" (reduce-constraint (proxy x1) x1=1 #f) (list succeed succeed))
    (tassert "reduce == & proxy undecidable" (reduce-constraint (proxy x2) x1=1 #f) (list succeed (proxy x2)))
@@ -98,6 +98,7 @@
  ;; we need to add an asymmetric flag where asymmetric successes (=/= and maybe pconstraint and matcho) dont fire inside disj. that way we can use the asymmetry to simplify stored disj without skipping fresh constraints
  ;; can we just skip disj in one direction since failure is symmetric always? no because two symbolos in a disj might cancel a new diseq
  (tassert "reduce =/= == fail" (reduce-constraint (== x1 1) (=/= x1 1) #f) (list fail fail))
+ (tassert "reduce =/= == fail" (reduce-constraint (=/= x1 1) (== x2 2) #f) (list (=/= x1 1) succeed))
  (tassert "reduce =/= == undecidable" (reduce-constraint (== x1 (cons x2 x3)) (=/= x1 1) #f) (list (== x1 (cons x2 x3)) succeed))
  (tassert "reduce =/= =/= succeed" (reduce-constraint (=/= x1 1) (=/= x1 1) #f) (list succeed succeed))
  (tassert "reduce =/= =/= undecidable" (reduce-constraint (=/= x1 (cons x2 x3)) (=/= x1 1) #f) (list (=/= x1 (cons x2 x3)) succeed))
