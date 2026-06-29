@@ -12,7 +12,7 @@
     (cert (=/=? g)) 
     (mini-unify '() (=/=-lhs g) (=/=-rhs g)))
 
-  (define (maybe-reduced e r)
+  (define (maybe-fail e r)
     (if (or (fail? e) (fail? r)) (values fail fail) (values e r)))
   
   (define (vouch e e-normalized r-normalized r)
@@ -79,14 +79,11 @@
        [(fail? simplified-lhs)
         (let-values ([(simplified-rhs recheck-rhs)
                        (reduce-constraint (disj-rhs e) r e-free r-disjunction #f r-normalized)])
-          (maybe-reduced succeed (conj simplified-rhs recheck-rhs)))]
+          (maybe-fail succeed (conj simplified-rhs recheck-rhs)))]
        [else
         (let-values ([(simplified-rhs recheck-rhs) (reduce-constraint (disj-rhs e) r e-free r-disjunction #f r-normalized)])
           (let ([d (disj (conj simplified-lhs recheck-lhs) (conj simplified-rhs recheck-rhs))])
-            (if (and (trivial? recheck-lhs) (not (==? d))) (maybe-reduced d succeed) (maybe-reduced succeed d)))
-          #;
-          (vouch (disj (conj simplified-lhs recheck-lhs) (conj simplified-rhs recheck-rhs))
-                 e-normalized (and r-normalized (succeed? recheck-lhs)) succeed))])))
+            (if (and (trivial? recheck-lhs) (disj? d)) (maybe-fail d succeed) (maybe-fail succeed d))))])))
   
   (define (reduce-noto e r e-free r-disjunction e-normalized r-normalized)
     (let-values ([(simplified recheck) (reduce-constraint (noto-goal e) r e-free r-disjunction e-normalized r-normalized)])
@@ -145,7 +142,7 @@
                 (let-values ([(lhs-normalized? lhs) (mini-walk-normalized s (==-lhs e))] ; ; ;
                 [(rhs-normalized? rhs) (mini-walk-normalized s (==-rhs e))]) ; ; ;
                 (vouch (== lhs rhs) e-normalized (and r-normalized (var? lhs) lhs-normalized? rhs-normalized?) succeed))]
-               [(=/=? e) (maybe-reduced (mini-disunify s (=/=-lhs e) (=/=-rhs e)) succeed)
+               [(=/=? e) (maybe-fail (mini-disunify s (=/=-lhs e) (=/=-rhs e)) succeed)
 
                 #;
                 (let-values ([(e r-vouches) (mini-disunify/normalized s (=/=-lhs e) (=/=-rhs e))])
