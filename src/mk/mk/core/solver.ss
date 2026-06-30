@@ -100,7 +100,7 @@
       (let-values ([(g g/recheck) (reduce-constraint g c #t)])
         (if (trivial? g) (solve-constraint g/recheck s ctn resolve delta) ; If g is entailed, skip it and keep solving. We may have g/recheck when c is a disjunction where all disjuncts need to recheck part of g. If g is fail, so is g/recheck.
             (let-values ([(c c/recheck) (reduce-constraint c g #t)]) ; Determine which stored constraints need to be rechecked. c returned from disunifier only contains constraints on x (those on y that would be relevant to x=/y are already proxied to x), so we don't need to touch y's constraints.
-              (cert (not (conj-memp c ==?)))
+              (cert (not (conj-memp c ==?))) ; TODO c/recheck may contain constraints attributable to this variable that can just be moved over to c
               (let ([attr-vars (attributed-vars g)]) ; Get the variables on which to store the new g.
                 (solve-constraint ; Run the constraints that need to be rerun,
                  c/recheck (extend ; and replace the store constraints in the store along with the new g.

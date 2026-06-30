@@ -38,7 +38,7 @@
        (exclusive-cond
         [(succeed? r) (values e succeed)] ; Succeed can only come from an empty store default so we know e is normalized.
         [(disj? r) (disj-reducer r e)]
-        [(conj? r) (conj-reducer r e e-free r-disjunction e-normalized r-normalized)]
+        [(conj? r) (conj-reducer e r e-free r-disjunction e-normalized r-normalized)]
         [else
          (exclusive-cond
           [(or (fail? e) (succeed? e)) (values e e)]
@@ -59,6 +59,7 @@
           (values e succeed))))
 
   (define (conj-reducer e r e-free r-disjunction e-normalized r-normalized)
+    (cert (conj? r))
     (let*-values ([(simplified recheck) (reduce-constraint e (conj-lhs r) e-free r-disjunction e-normalized r-normalized)]
                   [(simplified/simplified simplified/recheck) (reduce-constraint simplified (conj-rhs r) e-free r-disjunction e-normalized r-normalized)]
                   [(recheck/simplified recheck/recheck) (reduce-constraint recheck (conj-rhs r) e-free r-disjunction e-normalized r-normalized)])

@@ -57,4 +57,4 @@ test:
 
 debug:
 # Run unit tests with debugging enabled
-	scheme --debug-on-exception --import-notify --compile-imported-libraries --libdirs src/mk:src/tests:src/benchmarks:src/examples --script src/tests/all-tests.ss
+	scheme --debug-on-exception --compile-imported-libraries --libdirs src/mk:src/tests:src/benchmarks:src/examples --script src/tests/all-tests.ss # --import-notify
