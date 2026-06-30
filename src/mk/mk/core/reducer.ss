@@ -38,7 +38,7 @@
        (exclusive-cond
         [(succeed? r) (values e succeed)] ; Succeed can only come from an empty store default so we know e is normalized.
         [(disj? r) (disj-reducer r e)]
-        [(conj? r) (conj-reducer e r e-free r-disjunction e-normalized r-normalized)]
+        ;[(conj? r) (conj-reducer e r e-free r-disjunction e-normalized r-normalized)]
         [else
          (exclusive-cond
           [(or (fail? e) (succeed? e)) (values e e)]
