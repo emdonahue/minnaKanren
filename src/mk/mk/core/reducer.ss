@@ -38,7 +38,7 @@
        (exclusive-cond
         [(succeed? r) (values e succeed)] ; Succeed can only come from an empty store default so we know e is normalized.
         [(disj? r) (disj-reducer r e)]
-        ;[(conj? r) (conj-reducer e r e-free r-disjunction e-normalized r-normalized)]
+        [(conj? r) (conj-reducer e r e-free r-disjunction e-normalized r-normalized)]
         [else
          (exclusive-cond
           [(or (fail? e) (succeed? e)) (values e e)]
@@ -60,10 +60,22 @@
 
   (define (conj-reducer e r e-free r-disjunction e-normalized r-normalized)
     (cert (conj? r))
-    (let*-values ([(simplified recheck) (reduce-constraint e (conj-lhs r) e-free r-disjunction e-normalized r-normalized)]
-                  [(simplified/simplified simplified/recheck) (reduce-constraint simplified (conj-rhs r) e-free r-disjunction e-normalized r-normalized)]
-                  [(recheck/simplified recheck/recheck) (reduce-constraint recheck (conj-rhs r) e-free r-disjunction e-normalized r-normalized)])
-      (maybe-fail (conj simplified/simplified (conj simplified/recheck recheck/simplified)) recheck/recheck)))
+    (let-values ([(simplified recheck) (reduce-constraint e (conj-lhs r) e-free r-disjunction e-normalized r-normalized)])
+      (if (and (trivial? simplified) (trivial? recheck))
+          (maybe-fail simplified recheck)
+          (let-values ([(simplified/simplified simplified/recheck) (reduce-constraint simplified (conj-rhs r) e-free r-disjunction e-normalized r-normalized)])
+            (if (fail? simplified/simplified) (values fail fail)
+                (let-values ([(recheck/simplified recheck/recheck) (reduce-constraint recheck (conj-rhs r) e-free r-disjunction e-normalized r-normalized)])
+                  (maybe-fail simplified/simplified
+                              (conj simplified/recheck (conj recheck/simplified recheck/recheck)))))))))
+  
+  #;
+  (define (conj-reducer e r e-free r-disjunction e-normalized r-normalized) ; ; ;
+  (cert (conj? r))                      ; ; ;
+  (let*-values ([(simplified recheck) (reduce-constraint e (conj-lhs r) e-free r-disjunction e-normalized r-normalized)] ; ; ;
+  [(simplified/simplified simplified/recheck) (reduce-constraint simplified (conj-rhs r) e-free r-disjunction e-normalized r-normalized)] ; ; ;
+  [(recheck/simplified recheck/recheck) (reduce-constraint recheck (conj-rhs r) e-free r-disjunction e-normalized r-normalized)]) ; ; ;
+  (maybe-fail (conj simplified/simplified (conj simplified/recheck recheck/simplified)) recheck/recheck)))
   
   (org-define (=/=-reduce2 r e)
               ;; =/=,=/= -> succeed | =/=,=/=
@@ -110,7 +122,7 @@
      [(==? r) (==-reducer e (==->substitution r) e-free r-disjunction e-normalized r-normalized)]
      [(=/=? r) (=/=-reduce e r e-free r-disjunction e-normalized r-normalized)]
      [(pconstraint? r) (pconstraint-reduce e r e-free r-disjunction e-normalized r-normalized)]
-     [(conj? r) (conj-reducer e r e-free r-disjunction e-normalized r-normalized)]
+     ;[(conj? r) (conj-reducer e r e-free r-disjunction e-normalized r-normalized)]
      [(noto? r) (noto-reduce e (noto-goal r) e-free r-disjunction e-normalized r-normalized)]
      [(matcho? r) (matcho-reduce e r e-free r-disjunction e-normalized r-normalized)]
      [(proxy? r) (vouch e e-normalized #f succeed)] ; Proxies are never normalized and so can vouch for nothing
@@ -126,14 +138,14 @@
                            [else (values e succeed)]))
 
                 #;
-                (let-values ([(lhs-normalized? lhs) (mini-walk-normalized s (==-lhs e))] ; ; ;
-                [(rhs-normalized? rhs) (mini-walk-normalized s (==-rhs e))]) ; ; ;
+                (let-values ([(lhs-normalized? lhs) (mini-walk-normalized s (==-lhs e))] ; ; ; ;
+                [(rhs-normalized? rhs) (mini-walk-normalized s (==-rhs e))]) ; ; ; ;
                 (vouch (== lhs rhs) e-normalized (and r-normalized (var? lhs) lhs-normalized? rhs-normalized?) succeed))]
                [(=/=? e) (maybe-fail (mini-disunify s (=/=-lhs e) (=/=-rhs e)) succeed)
 
                 #;
-                (let-values ([(e r-vouches) (mini-disunify/normalized s (=/=-lhs e) (=/=-rhs e))])
-                  (vouch e e-normalized (and r-normalized r-vouches) succeed))]
+                (let-values ([(e r-vouches) (mini-disunify/normalized s (=/=-lhs e) (=/=-rhs e))]) ;
+                (vouch e e-normalized (and r-normalized r-vouches) succeed))]
                [(matcho? e) (let-values ([(expanded? e ==s) (matcho/expand e s)])
                               (if expanded?
                                   (reduce-constraint (conj ==s e) s e-free r-disjunction #f r-normalized)
@@ -148,29 +160,29 @@
   (org-define (=/=-reduce e r e-free r-disjunction e-normalized r-normalized)
               ;; =/= can only simplify ==->fail and =/=->succeed
               (cert (=/=? r))
-    (exclusive-cond
-     [(==? e) ; -> fail?. Simple equality check ok because 1) we ignore list unifications for performance reasons, constants will already succeed or fail, and == orders vars by id
-      (vouch (if (equal? e (noto-goal r)) fail e) e-normalized r-normalized (noto-goal r))]
-     [(=/=? e)                          ; -> succeed, =/=
-      (if (equal? e r) (values succeed succeed)      ; Identical =/= can cancel
-          (values e succeed))]
-     #;
-     [(=/=? e)                          ; -> succeed, =/= ; ;
-     (cert (not (pair? (=/=-lhs e))))  ; ; ;
-     (if (and (not (and e-free r-disjunction)) (equal? e r)) ; If reducee is free and reducer is in a disjunction, we must negate our usual symmetric equality check and preserve the reducee so it can later simplify the reducer. ; ;
-     (values succeed succeed)      ; Identical =/= can cancel ; ;
-     (vouch e e-normalized (and r-normalized (not (and e-free r-disjunction))) (noto-goal r)))]
-     [(matcho? e) (vouch e e-normalized r-normalized r)]
-     [(pconstraint? e) (vouch e e-normalized r-normalized r)]
-     [(proxy? e) (if (vouches? r e) (values succeed succeed) (values succeed e))]
-     [else (assertion-violation '=/=-reduce "Unrecognized constraint type" e)]))
+              (exclusive-cond
+               [(==? e) ; -> fail?. Simple equality check ok because 1) we ignore list unifications for performance reasons, constants will already succeed or fail, and == orders vars by id
+                (vouch (if (equal? e (noto-goal r)) fail e) e-normalized r-normalized (noto-goal r))]
+               [(=/=? e)                        ; -> succeed, =/=
+                (if (equal? e r) (values succeed succeed) ; Identical =/= can cancel
+                    (values e succeed))]
+               #;
+               [(=/=? e)                          ; -> succeed, =/= ; ; ;
+               (cert (not (pair? (=/=-lhs e))))  ; ; ; ;
+               (if (and (not (and e-free r-disjunction)) (equal? e r)) ; If reducee is free and reducer is in a disjunction, we must negate our usual symmetric equality check and preserve the reducee so it can later simplify the reducer. ; ; ;
+               (values succeed succeed)      ; Identical =/= can cancel ; ; ;
+               (vouch e e-normalized (and r-normalized (not (and e-free r-disjunction))) (noto-goal r)))]
+               [(matcho? e) (vouch e e-normalized r-normalized r)]
+               [(pconstraint? e) (vouch e e-normalized r-normalized r)]
+               [(proxy? e) (if (vouches? r e) (values succeed succeed) (values succeed e))]
+               [else (assertion-violation '=/=-reduce "Unrecognized constraint type" e)]))
   
   (define (pconstraint-reduce e r e-free r-disjunction e-normalized r-normalized)
     (cert (pconstraint? r))
     (exclusive-cond
      [(==? e) (let-values ([(simplified recheck) (==/pconstraint-reduce r (==->substitution e) e-free r-disjunction e-normalized r-normalized)])
                 (if (fail? simplified) (values fail fail) (vouch e e-normalized r-normalized r)))]
-     [(=/=? e) ; -> succeed, =/=
+     [(=/=? e)                          ; -> succeed, =/=
       (let-values ([(simplified recheck) (==/pconstraint-reduce r (=/=->substitution e) e-free r-disjunction e-normalized r-normalized)])
         (if (fail? simplified) (values succeed succeed) (vouch e e-normalized r-normalized r)))]
      [else (assertion-violation 'pconstraint-reduce "Unrecognized constraint type" e)]))
@@ -187,16 +199,16 @@
                  (reduce-constraint ((pconstraint-procedure e) (car vars) v e succeed e) s e-free r-disjunction e-normalized r-normalized))))]))
 
   (org-define (matcho-reduce e r e-free r-disjunction e-normalized r-normalized)
-    (exclusive-cond
-     [(==? e) (if (failure? (mini-unify (matcho-substitution r) (==-lhs e) (==-rhs e)))
-                      (values fail fail)
-                      (vouch e e-normalized r-normalized r))]
-     [(=/=? e) ; -> succeed, =/=
-      (let-values ([(d n?) (mini-disunify/normalized (matcho-substitution r) (=/=-lhs e) (=/=-rhs e))])
-        (org-display d n? (matcho-substitution r) e)
-        (if (succeed? d) (values succeed succeed) (vouch e e-normalized r-normalized r)))]
-     ;;TODO matchos with eq? lambda can cancel
-     [else (assertion-violation 'matcho-reduce "Unrecognized constraint type" e)]))
+              (exclusive-cond
+               [(==? e) (if (failure? (mini-unify (matcho-substitution r) (==-lhs e) (==-rhs e)))
+                            (values fail fail)
+                            (vouch e e-normalized r-normalized r))]
+               [(=/=? e)                ; -> succeed, =/=
+                (let-values ([(d n?) (mini-disunify/normalized (matcho-substitution r) (=/=-lhs e) (=/=-rhs e))])
+                  (org-display d n? (matcho-substitution r) e)
+                  (if (succeed? d) (values succeed succeed) (vouch e e-normalized r-normalized r)))]
+               ;;TODO matchos with eq? lambda can cancel
+               [else (assertion-violation 'matcho-reduce "Unrecognized constraint type" e)]))
 
   (define (noto-reduce e r e-free r-disjunction e-normalized r-normalized)
     (let-values ([(simplified recheck) (reduce-constraint r (if (noto? e) (noto-goal e) e) e-free r-disjunction e-normalized r-normalized)])

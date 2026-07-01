@@ -216,6 +216,12 @@
  (tassert "reduce ==|==! =/=" (reduce-constraint (disj (== x1 1) (== x1 2)) (=/= x1 2) #f) (list succeed (== x1 1)))
  (tassert "reduce (==&==)|==! =/=" (reduce-constraint (disj (conj (== x1 1) (=/= x2 2)) (== x1 2)) (=/= x1 2) #f) (list succeed (conj (== x1 1) (=/= x2 2))))
 
+ ;; === CONJUNCTION ===
+ (tassert "reduce =/=! ==&=/=" (reduce-constraint (=/= x1 1) (conj (== x1 1) (=/= x2 2)) #t) (list fail fail))
+ (tassert "reduce =/=! =/=&==" (reduce-constraint (=/= x1 1) (conj (=/= x2 2) (== x1 1)) #t) (list fail fail))
+ (tassert "reduce =/=!|=/= ==&=/=" (reduce-constraint (disj (=/= x1 1) (=/= x2 1)) (conj (== x1 1) (=/= x2 2)) #t) (list succeed (=/= x2 1)))
+ (tassert "reduce =/=|=/=! ==&=/=" (reduce-constraint (disj (=/= x2 1) (=/= x1 1)) (conj (== x1 1) (=/= x2 2)) #t) (list succeed (=/= x2 1)))
+
  ;; === ASYMMETRIC ===
  (tassert "reduce asym =/= =/=|=/=" (reduce-constraint (=/= x1 1) (disj (=/= x1 1) (=/= x1 1)) #t) (list succeed succeed))
  (tassert "reduce asym =/= ==|=/=" (reduce-constraint (=/= x1 1) (disj (== x1 2) (=/= x1 1)) #t) (list succeed succeed))
