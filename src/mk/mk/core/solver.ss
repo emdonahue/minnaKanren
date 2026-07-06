@@ -97,7 +97,7 @@
     (cert (==? g))                          ; -> delta state?
     (let-values ([(g c) (disunify s (==-lhs g) (==-rhs g))]) ; If non-trivial, g is normalized x=/=y or, in the case of list =/=, a disjunction headed by one normalized =/= and a number of lazy =/=. c is conjoined constraints on x&y that may need to be rechecked.
       (cert (or (trivial? g) (=/=? g) (and (disj? g) (=/=? (disj-car g)))))
-      (let-values ([(g g/recheck) (reduce-constraint g c #t)])
+      (let-values ([(g g/recheck) (reduce-constraint g c #t)]) ; TODO can we store the simplified version of the new constraint instead of just checking for entailment?
         (if (trivial? g) (solve-constraint g/recheck s ctn resolve delta) ; If g is entailed, skip it and keep solving. We may have g/recheck when c is a disjunction where all disjuncts need to recheck part of g. If g is fail, so is g/recheck.
             (let-values ([(c c/recheck) (reduce-constraint c g #t)]) ; Determine which stored constraints need to be rechecked. c returned from disunifier only contains constraints on x (those on y that would be relevant to x=/y are already proxied to x), so we don't need to touch y's constraints.
               (cert (not (conj-memp c ==?))) ; TODO c/recheck may contain constraints attributable to this variable that can just be moved over to c

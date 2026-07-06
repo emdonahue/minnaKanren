@@ -4,3 +4,4 @@
 /benchmarks/
 *.so
 *.wpo
+*.~undo-tree~

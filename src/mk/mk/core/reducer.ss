@@ -122,7 +122,6 @@
      [(==? r) (==-reducer e (==->substitution r) e-free r-disjunction e-normalized r-normalized)]
      [(=/=? r) (=/=-reduce e r e-free r-disjunction e-normalized r-normalized)]
      [(pconstraint? r) (pconstraint-reduce e r e-free r-disjunction e-normalized r-normalized)]
-     ;[(conj? r) (conj-reducer e r e-free r-disjunction e-normalized r-normalized)]
      [(noto? r) (noto-reduce e (noto-goal r) e-free r-disjunction e-normalized r-normalized)]
      [(matcho? r) (matcho-reduce e r e-free r-disjunction e-normalized r-normalized)]
      [(proxy? r) (vouch e e-normalized #f succeed)] ; Proxies are never normalized and so can vouch for nothing
